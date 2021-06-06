@@ -1,0 +1,180 @@
+#!/usr/bin/bash
+
+c1="\e[1;7m"
+c2='\e[0;1;30m'
+c3='\e[0;1m'
+c4="\e[0m"
+
+distro=$(uname -o | grep -o "Android")
+directory1="$PREFIX/share"
+directory2="/usr/share"
+slp="sleep 0.03"
+check=`echo "$2" | grep -E ^\-?[0-9]*\.?[0-9]+$`
+
+DETECT_OS() {
+if [[ ${distro} == "Android" ]];then
+directory="${directory1}"
+else
+directory="${directory2}"
+fi
+}
+
+DETECT_OS
+
+HIDE(){ echo -en "\033[?25l";}
+NORM(){ echo -en "zzz";}
+banner() {
+echo -e "
+[SKID SPOTTED]"
+}
+function progress_bar() {
+if [ ! -f "${directory}/ngrok" ];then
+HIDE
+echo -ne "poor skid no ngrok😢"
+sleep 1.4
+while true ;do
+echo -ne "hmm skid"
+if [ -f "${directory}/ngrok" ];then
+echo -ne "                                                \r"
+NORM
+break
+fi
+done
+fi
+}
+function ngrok_installer() {
+if [ ! -f "${directory}/ngrok" ];then
+cd ${directory}
+curl --progress-bar -L --fail --retry 4 -O https://bin.equinox.io/a/nmkK3DkqZEB/ngrok-2.2.8-linux-arm64.zip &> /dev/null
+unzip ngrok-2.2.8-linux-arm64.zip &> /dev/null
+chmod +x ngrok &> /dev/null
+rm -rf ngrok-2.2.8-linux-arm64.zip &> /dev/null
+echo -e "ngrok downloaded"
+fi
+}
+net_check() {
+connection="$(echo bla &>/dev/null)"
+if [[ "$connection" == gay ]]
+then
+printf "Ngrok error, debug: connection"
+exit
+fi
+}
+stop() {
+if [[ $checkngrok == *'ngrok'* ]]; then
+pkill -f -2 ngrok > /dev/null 2>&1
+killall -2 ngrok > /dev/null 2>&1
+fi
+checkngrok=$(ps aux | grep -o "ngrok" | head -n1)
+checkphp=$(ps aux | grep -o "php" | head -n1)
+checkssh=$(ps aux | grep -o "ssh" | head -n1)
+if [[ $checkngrok == *'ngrok'* ]]; then
+pkill -f -2 ngrok > /dev/null 2>&1
+killall -2 ngrok > /dev/null 2>&1
+fi
+if [[ $checkphp == *'php'* ]]; then
+killall -2 php > /dev/null 2>&1
+fi
+if [[ $checkssh == *'ssh'* ]]; then
+killall -2 ssh > /dev/null 2>&1
+fi
+}
+if [[ "$1" == "-authtoken" ]];then banner
+trap '' SIGTSTP
+trap '' SIGINT
+progress_bar & ngrok_installer
+cd ${directory} ;NORM
+if [ ${#2} -lt 1 ]; then
+echo "ERROR:  You must pass a single argument, the authtoken to save to configuration file."
+exit 0
+fi
+./ngrok authtoken $2 | grep -a "Authtoken"
+
+elif [[ "$1" == "-http" ]] || [[ "$1" == "--http" ]];then banner
+trap '' SIGTSTP
+trap '' SIGINT
+progress_bar & ngrok_installer
+stop
+cd ${directory} ;NORM
+./ngrok http $2 > /dev/null 2>&1 &
+if [ ${#2} -lt 1 ]; then
+echo "ERROR:  For example, to expose port 80, run 'ngrok http 80'."
+exit 0
+fi
+if [ "$check" != '' ]; then
+pwd &> /dev/null
+else
+echo "ERROR:  Tunnel 'command_line' specifies invalid address '$2': address $2: missing port in address"
+exit 1
+fi
+http_ngrok() {
+link=$(curl -s -N http://127.0.0.1:4040/api/tunnels | grep -o "https://[0-9a-z]*\.ngrok.io")
+}
+sleep 0
+printf ".."
+net_check
+http_ngrok
+if [[ -z $link ]];then
+printf "$link" &> /dev/null
+sleep 10
+http_ngrok
+printf "$link" &> /dev/null
+fi
+if [[ -z $link ]];then
+printf "$[!] Ngrok error, debug: ./ngrok http $2 ${c4}\n"
+exit
+fi
+printf "hehe lets steal files : $link"
+echo
+elif [[ "$1" == "-tcp" ]] || [[ "$1" == "--tcp" ]];then banner
+trap '' SIGTSTP
+trap '' SIGINT
+progress_bar & ngrok_installer
+stop
+cd ${directory}
+./ngrok tcp $2 > /dev/null 2>&1 &
+if [ ${#2} -lt 1 ]; then
+echo "ERROR:  For example, to expose port 80, run 'ngrok tcp 80'."
+exit 0
+fi
+if [ "$check" != '' ]; then
+pwd &> /dev/null
+else
+echo "ERROR:  Tunnel 'command_line' specifies invalid address '$2': address $2: missing port in address"
+exit 1
+fi
+tcp_ngrok() {
+link=$(curl -s -N http://127.0.0.1:4040/api/tunnels | grep -o "tcp://[0-9]*\.tcp.ngrok.io:[0-9]*")
+}
+sleep 0
+printf "${c4}[+] Starting ngrok-server ${c1}tcp${c4} port: (${2})...\n"
+net_check
+tcp_ngrok
+if [[ -z $link ]];then
+printf "$link" &> /dev/null
+sleep 10
+tcp_ngrok
+printf "$link" &> /dev/null
+fi
+if [[ -z $link ]];then
+printf "${c4}[!] Ngrok error, debug: ${c3}./ngrok tcp $2 ${c4}\n"
+exit
+fi
+printf "${c4}[+] Forward ${c1}tcp${c4} link: ${c3}$link${c4}"
+echo
+else
+echo -e "EXAMPLES:"
+echo "ngrok -http 80       # secure public URL for port 80 web server"
+echo -e "ngrok -tcp  80       # tunnel arbitrary TCP traffic to port 80\n"
+echo "VERSION:"
+echo -e "2.28\n"
+echo "AUTHOR:"
+echo -e "ABHacker Official - <abhackerofficial>\n"
+echo "COMMANDS:"
+echo "-authtoken    save authtoken to configuration file"
+echo "-http         start an HTTP tunnel"
+echo -e "-tcp          start a TCP tunnel\n"
+echo "USAGE:"
+echo "ngrok -http <port> ..."
+echo "ngrok -tcp <port> ..."
+fi
